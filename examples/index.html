@@ -79,6 +79,11 @@
         </div>
     </div>
 
+    <div class="example-container">
+        <div class="example-title">3. Таблица с фильтрацией</div>
+        <div id="grid3"></div>
+    </div>
+
     <script>
         // Тестовые данные
         const sampleData = [
@@ -127,9 +132,24 @@
                 ],
                 selectable: { mode: 'multiple', checkbox: true },
                 pageable: {
+                    enabled: true,
                     pageSize: 5,
                     pageSizes: [5, 10, 20, 50]
                 }
+            });
+
+            // Инициализация таблицы 3 (с фильтрацией)
+            $('#grid3').cmDataGrid({
+                dataSource: sampleData,
+                columns: [
+                    { field: 'id', title: 'ID', width: 60 },
+                    { field: 'name', title: 'Имя', width: 200 },
+                    { field: 'age', title: 'Возраст', width: 100 },
+                    { field: 'city', title: 'Город', width: 180 },
+                    { field: 'salary', title: 'Зарплата', width: 120 }
+                ],
+                sortable: { enabled: true, mode: 'multiple' },
+                filterable: { enabled: true, mode: 'row' }
             });
         });
 

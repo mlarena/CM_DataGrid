@@ -1,6 +1,13 @@
 import { EventEmitter } from '../utils/EventEmitter.js';
 import { Column } from './Column.js';
 import { DataSource } from './DataSource.js';
+import { Paging } from '../modules/Paging.js';
+import { Sorting } from '../modules/Sorting.js';
+import { Selection } from '../modules/Selection.js';
+import { Filtering } from '../modules/Filtering.js';
+import { HeaderRenderer } from '../renderers/HeaderRenderer.js';
+import { CellRenderer } from '../renderers/CellRenderer.js';
+import { FooterRenderer } from '../renderers/FooterRenderer.js';
 
 /**
  * CMDataGrid - Основной класс таблицы данных
@@ -23,6 +30,17 @@ export class Grid extends EventEmitter {
         this._dataSource = null;
         this._initialized = false;
 
+        // Модули
+        this._paging = null;
+        this._sorting = null;
+        this._selection = null;
+        this._filtering = null;
+
+        // Рендереры
+        this._headerRenderer = null;
+        this._cellRenderer = null;
+        this._footerRenderer = null;
+
         this._init();
     }
 
@@ -33,12 +51,12 @@ export class Grid extends EventEmitter {
         return {
             dataSource: null,
             columns: [],
-            selectable: { mode: 'none', checkbox: false },
-            pageable: false,
-            sortable: false,
-            filterable: false,
-            groupable: false,
-            editable: false,
+            selectable: { mode: 'none', checkbox: false, persist: false },
+            pageable: { enabled: false, pageSize: 20, pageSizes: [10, 20, 50, 100] },
+            sortable: { enabled: false, mode: 'single', allowUnsort: true },
+            filterable: { enabled: false, mode: 'row' },
+            groupable: { enabled: false },
+            editable: { enabled: false, mode: 'inline' },
             resizable: false,
             reorderable: false,
             virtualScroll: { enabled: false },
@@ -93,6 +111,12 @@ export class Grid extends EventEmitter {
     _init() {
         this.trigger('beforeInit', { config: this._config });
 
+        // Инициализация рендереров
+        this._initRenderers();
+
+        // Инициализация модулей
+        this._initModules();
+
         // Создание структуры DOM
         this._container.classList.add('cm-grid');
         this._container.innerHTML = this._getHTML();
@@ -108,14 +132,82 @@ export class Grid extends EventEmitter {
     }
 
     /**
+     * Инициализация рендереров
+     */
+    _initRenderers() {
+        this._headerRenderer = new HeaderRenderer({
+            sortable: this._config.sortable?.enabled || false,
+            filterable: this._config.filterable?.enabled || false
+        });
+
+        this._cellRenderer = new CellRenderer();
+
+        this._footerRenderer = new FooterRenderer();
+    }
+
+    /**
+     * Инициализация модулей
+     */
+    _initModules() {
+        // Пагинация
+        if (this._config.pageable?.enabled) {
+            this._paging = new Paging(this._config.pageable);
+            this._paging.on('pageChange', (e, data) => {
+                this._dataSource.page(data.page);
+                this.refresh();
+                this.trigger('pageChange', data);
+            });
+            this._paging.on('pageSizeChange', (e, data) => {
+                this._dataSource.pageSize = data.pageSize;
+                this.refresh();
+            });
+        }
+
+        // Сортировка
+        this._sorting = new Sorting({
+            mode: this._config.sortable?.mode || 'single',
+            allowUnsort: this._config.sortable?.allowUnsort !== false,
+            initial: this._config.sort || []
+        });
+
+        this._sorting.on('sortChange', (e, data) => {
+            this._dataSource.sort(data.sort);
+            this._renderHeader();
+            this.refresh();
+            this.trigger('sort', { sort: data.sort });
+        });
+
+        // Выборка
+        this._selection = new Selection(this._config.selectable);
+        this._selection.on('selectionChange', (e, data) => {
+            this.refresh();
+            this.trigger('change', { selectedItems: data.selected });
+        });
+
+        // Фильтрация
+        if (this._config.filterable?.enabled) {
+            this._filtering = new Filtering(this._config.filterable);
+            this._filtering.on('filterChange', (e, data) => {
+                const filterExpr = this._filtering.getFilterExpression();
+                this._dataSource.filter(filterExpr);
+                this.refresh();
+                this.trigger('filter', { filter: filterExpr });
+            });
+        }
+    }
+
+    /**
      * Базовая HTML-структура
      */
     _getHTML() {
+        const filterRow = this._config.filterable?.enabled ? '<tbody class="cm-grid-filter-tbody"></tbody>' : '';
+
         return `
             <div class="cm-grid-wrapper">
                 <div class="cm-grid-header">
                     <table class="cm-grid-table cm-grid-header-table">
                         <thead>${this._renderHeader()}</thead>
+                        ${filterRow}
                     </table>
                 </div>
                 <div class="cm-grid-content">
@@ -123,7 +215,8 @@ export class Grid extends EventEmitter {
                         <tbody class="cm-grid-body"></tbody>
                     </table>
                 </div>
-                <div class="cm-grid-footer"></div>
+                <div class="cm-grid-footer-container"></div>
+                <div class="cm-grid-pager-container"></div>
             </div>
         `;
     }
@@ -133,78 +226,76 @@ export class Grid extends EventEmitter {
      */
     _renderHeader() {
         const columns = this._getVisibleColumns();
-        const rows = [];
+        const sort = this._sorting ? this._sorting.getSort() : [];
 
-        // Проверяем наличие групп колонок
-        const hasGroups = columns.some(col => col.isGroup);
+        return this._headerRenderer.render(columns, sort);
+    }
 
-        if (hasGroups) {
-            // Рендерим группы
-            rows.push(this._renderHeaderGroups(columns));
+    /**
+     * Обновление заголовка
+     */
+    _updateHeader() {
+        const thead = this._container.querySelector('.cm-grid-header-table thead');
+        if (thead) {
+            thead.innerHTML = this._renderHeader();
         }
 
-        // Основная строка заголовков
-        rows.push(this._renderHeaderRow(columns));
+        // Обновляем индикаторы сортировки
+        if (this._sorting) {
+            const columns = this._getVisibleColumns();
+            const sort = this._sorting.getSort();
 
-        return rows.join('');
+            columns.forEach(col => {
+                if (col.isGroup) {
+                    col.columns.forEach(child => {
+                        const th = this._container.querySelector(`th[data-field="${child.field}"]`);
+                        if (th) this._sorting.renderIndicator(th, child.field);
+                    });
+                } else {
+                    const th = this._container.querySelector(`th[data-field="${col.field}"]`);
+                    if (th) this._sorting.renderIndicator(th, col.field);
+                }
+            });
+        }
     }
 
     /**
-     * Рендеринг группы заголовков
+     * Рендеринг строки фильтров
      */
-    _renderHeaderGroups(columns) {
-        let html = '<tr>';
-        columns.forEach(col => {
-            if (col.isGroup) {
-                const colspan = col.columns.length;
-                html += `<th class="cm-grid-header-group" colspan="${colspan}">${col.title}</th>`;
-            } else {
-                html += '<th class="cm-grid-header-spacer"></th>';
-            }
-        });
-        html += '</tr>';
-        return html;
+    _renderFilterRow() {
+        if (!this._filtering) return;
+
+        const filterTbody = this._container.querySelector('.cm-grid-filter-tbody');
+        if (filterTbody) {
+            this._filtering.render(filterTbody, this._getVisibleColumns());
+        }
     }
 
     /**
-     * Рендеринг строки заголовков
+     * Рендеринг пагинации
      */
-    _renderHeaderRow(columns) {
-        let html = '<tr>';
-        columns.forEach(col => {
-            if (col.isGroup) {
-                // Для групп рендерим дочерние колонки
-                col.columns.forEach(child => {
-                    html += this._renderHeaderCell(child);
-                });
-            } else {
-                html += this._renderHeaderCell(col);
-            }
-        });
-        html += '</tr>';
-        return html;
+    _renderPager() {
+        if (!this._paging) return;
+
+        const pagerContainer = this._container.querySelector('.cm-grid-pager-container');
+        if (pagerContainer) {
+            this._paging.render(pagerContainer, {
+                page: this._dataSource.currentPage,
+                total: this._dataSource.total(),
+                pageSize: this._dataSource.pageSize
+            });
+        }
     }
 
     /**
-     * Рендеринг ячейки заголовка
+     * Рендеринг футера
      */
-    _renderHeaderCell(column) {
-        const classes = ['cm-grid-header-cell'];
-        if (column.get('sortable')) classes.push('cm-grid-sortable');
-        if (column.get('filterable')) classes.push('cm-grid-filterable');
+    _renderFooter() {
+        const footerContainer = this._container.querySelector('.cm-grid-footer-container');
+        if (!footerContainer) return;
 
-        const attrs = Object.entries(column.get('headerAttributes') || {})
-            .map(([key, val]) => `${key}="${val}"`)
-            .join(' ');
-
-        return `
-            <th class="${classes.join(' ')}" 
-                data-field="${column.field}"
-                ${attrs}>
-                <span class="cm-grid-header-text">${column.title}</span>
-                <span class="cm-grid-sort-icon"></span>
-            </th>
-        `;
+        // Здесь можно добавить отображение агрегатов
+        footerContainer.innerHTML = '';
     }
 
     /**
@@ -216,67 +307,27 @@ export class Grid extends EventEmitter {
 
         const data = this._dataSource ? this._dataSource.view() : [];
         const columns = this._getVisibleColumns();
+        const selected = this._selection ? this._selection.getSelected() : [];
 
         if (data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="${columns.length}" class="cm-grid-empty">Нет данных</td></tr>`;
+            tbody.innerHTML = this._cellRenderer.renderEmpty(columns.length);
             return;
         }
 
         const fragment = document.createDocumentFragment();
         data.forEach((item, rowIndex) => {
-            const tr = this._renderRow(item, columns, rowIndex);
+            const tr = this._cellRenderer.renderRow(item, columns, rowIndex, { selected });
             fragment.appendChild(tr);
         });
 
         tbody.innerHTML = '';
         tbody.appendChild(fragment);
-    }
 
-    /**
-     * Рендеринг строки
-     */
-    _renderRow(dataItem, columns, rowIndex) {
-        const tr = document.createElement('tr');
-        tr.classList.add('cm-grid-row');
-        tr.dataset.rowIndex = rowIndex;
+        // Обновляем пагинацию
+        this._renderPager();
 
-        if (this._isItemSelected(dataItem)) {
-            tr.classList.add('cm-grid-row-selected');
-        }
-
-        columns.forEach(col => {
-            if (col.isGroup) {
-                col.columns.forEach(child => {
-                    tr.appendChild(this._renderCell(dataItem, child, rowIndex));
-                });
-            } else {
-                tr.appendChild(this._renderCell(dataItem, col, rowIndex));
-            }
-        });
-
-        return tr;
-    }
-
-    /**
-     * Рендеринг ячейки
-     */
-    _renderCell(dataItem, column, rowIndex) {
-        const td = document.createElement('td');
-        td.classList.add('cm-grid-cell');
-        td.dataset.field = column.field;
-
-        const value = column.getValue(dataItem);
-        const rendered = column.render(value, dataItem);
-
-        td.innerHTML = rendered;
-
-        // Атрибуты ячейки
-        const attrs = column.get('attributes') || {};
-        Object.entries(attrs).forEach(([key, val]) => {
-            td.setAttribute(key, val);
-        });
-
-        return td;
+        // Обновляем футер
+        this._renderFooter();
     }
 
     /**
@@ -318,12 +369,12 @@ export class Grid extends EventEmitter {
      */
     _bindEvents() {
         // Клик по заголовку для сортировки
-        const headerRow = this._container.querySelector('.cm-grid-header-table');
-        if (headerRow) {
-            headerRow.addEventListener('click', (e) => {
+        const headerTable = this._container.querySelector('.cm-grid-header-table');
+        if (headerTable) {
+            headerTable.addEventListener('click', (e) => {
                 const headerCell = e.target.closest('.cm-grid-header-cell');
                 if (headerCell && headerCell.classList.contains('cm-grid-sortable')) {
-                    this._onHeaderClick(headerCell);
+                    this._onHeaderClick(headerCell, e);
                 }
             });
         }
@@ -343,29 +394,16 @@ export class Grid extends EventEmitter {
     /**
      * Обработка клика по заголовку
      */
-    _onHeaderClick(headerCell) {
+    _onHeaderClick(headerCell, event) {
         const field = headerCell.dataset.field;
         const column = this._columns.find(col => col.field === field);
 
         if (!column || !column.get('sortable')) return;
 
-        const currentSort = this._dataSource.currentSort;
-        const existing = currentSort.find(s => s.field === field);
-
-        let newSort;
-        if (existing) {
-            if (existing.dir === 'asc') {
-                newSort = currentSort.map(s => s.field === field ? { ...s, dir: 'desc' } : s);
-            } else {
-                // Удаляем сортировку
-                newSort = currentSort.filter(s => s.field !== field);
-            }
-        } else {
-            newSort = [...currentSort, { field, dir: 'asc' }];
+        if (this._sorting) {
+            const isCtrl = event.ctrlKey || event.metaKey;
+            this._sorting.handleHeaderClick(field, isCtrl);
         }
-
-        this._dataSource.sort(newSort);
-        this.trigger('sort', { sort: newSort });
     }
 
     /**
@@ -378,41 +416,9 @@ export class Grid extends EventEmitter {
         this.trigger('rowClick', { row, dataItem: data, event });
 
         // Обработка выборки
-        if (this._config.selectable.mode !== 'none') {
-            this._toggleSelection(data, event);
+        if (this._selection && this._config.selectable?.mode !== 'none') {
+            this._selection.handleRowClick(data, event);
         }
-    }
-
-    /**
-     * Проверка選択状態
-     */
-    _isItemSelected(dataItem) {
-        if (!this._selectedItems) return false;
-        return this._selectedItems.includes(dataItem);
-    }
-
-    /**
-     * Переключение選択
-     */
-    _toggleSelection(dataItem, event) {
-        if (!this._selectedItems) {
-            this._selectedItems = [];
-        }
-
-        const index = this._selectedItems.indexOf(dataItem);
-
-        if (this._config.selectable.mode === 'single') {
-            this._selectedItems = index === -1 ? [dataItem] : [];
-        } else {
-            if (index === -1) {
-                this._selectedItems.push(dataItem);
-            } else {
-                this._selectedItems.splice(index, 1);
-            }
-        }
-
-        this.refresh();
-        this.trigger('change', { selectedItems: this._selectedItems });
     }
 
     // ===================== Публичные методы =====================
@@ -422,6 +428,7 @@ export class Grid extends EventEmitter {
      */
     refresh() {
         this._renderBody();
+        this._updateHeader();
     }
 
     /**
@@ -548,40 +555,31 @@ export class Grid extends EventEmitter {
     // ===================== Выборка =====================
 
     select(row) {
-        if (!this._selectedItems) this._selectedItems = [];
-        if (!this._selectedItems.includes(row)) {
-            this._selectedItems.push(row);
-            this.refresh();
-            this.trigger('change', { selectedItems: this._selectedItems });
+        if (this._selection) {
+            this._selection.select(row);
         }
     }
 
     unselect(row) {
-        if (!this._selectedItems) return;
-        const index = this._selectedItems.indexOf(row);
-        if (index !== -1) {
-            this._selectedItems.splice(index, 1);
-            this.refresh();
-            this.trigger('change', { selectedItems: this._selectedItems });
+        if (this._selection) {
+            this._selection.unselect(row);
         }
     }
 
     selectAll() {
-        if (this._dataSource) {
-            this._selectedItems = [...this._dataSource.view()];
-            this.refresh();
-            this.trigger('change', { selectedItems: this._selectedItems });
+        if (this._selection && this._dataSource) {
+            this._selection.selectAll(this._dataSource.view());
         }
     }
 
     unselectAll() {
-        this._selectedItems = [];
-        this.refresh();
-        this.trigger('change', { selectedItems: [] });
+        if (this._selection) {
+            this._selection.unselectAll();
+        }
     }
 
     getSelected() {
-        return this._selectedItems || [];
+        return this._selection ? this._selection.getSelected() : [];
     }
 
     // ===================== Колонки =====================
@@ -621,6 +619,13 @@ export class Grid extends EventEmitter {
      * Уничтожение таблицы
      */
     destroy() {
+        // Уничтожаем модули
+        if (this._paging) this._paging.destroy();
+        if (this._sorting) this._sorting.destroy();
+        if (this._selection) this._selection.destroy();
+        if (this._filtering) this._filtering.destroy();
+
+        // Уничтожаем DataSource
         if (this._dataSource) {
             this._dataSource.destroy();
         }
