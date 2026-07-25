@@ -1,0 +1,355 @@
+/**
+ * CM Data Grid - Базовые стили
+ */
+
+:root {
+    /* Цвета */
+    --cm-grid-bg: #ffffff;
+    --cm-grid-header-bg: #f8f9fa;
+    --cm-grid-border-color: #dee2e6;
+    --cm-grid-text-color: #212529;
+    --cm-grid-hover-bg: #f0f0f0;
+    --cm-grid-selected-bg: #e3f2fd;
+    --cm-grid-selected-color: #0d6efd;
+    --cm-grid-alt-bg: #f8f9fa;
+
+    /* Размеры */
+    --cm-grid-font-size: 14px;
+    --cm-grid-header-height: 40px;
+    --cm-grid-row-height: 36px;
+    --cm-grid-cell-padding: 8px 12px;
+
+    /* Границы */
+    --cm-grid-border-width: 1px;
+    --cm-grid-border-radius: 4px;
+
+    /* Цвета для состояний */
+    --cm-grid-error-color: #dc3545;
+    --cm-grid-success-color: #28a745;
+    --cm-grid-warning-color: #ffc107;
+    --cm-grid-info-color: #17a2b8;
+}
+
+/* Основной контейнер */
+.cm-grid {
+    font-size: var(--cm-grid-font-size);
+    color: var(--cm-grid-text-color);
+    background: var(--cm-grid-bg);
+    border: var(--cm-grid-border-width) solid var(--cm-grid-border-color);
+    border-radius: var(--cm-grid-border-radius);
+    overflow: hidden;
+}
+
+.cm-grid * {
+    box-sizing: border-box;
+}
+
+/* Обертка */
+.cm-grid-wrapper {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
+/* Заголовок */
+.cm-grid-header {
+    flex-shrink: 0;
+    overflow: hidden;
+    background: var(--cm-grid-header-bg);
+    border-bottom: var(--cm-grid-border-width) solid var(--cm-grid-border-color);
+}
+
+/* Контент (прокручиваемая область) */
+.cm-grid-content {
+    flex: 1;
+    overflow: auto;
+    min-height: 100px;
+}
+
+/* Подвал */
+.cm-grid-footer {
+    flex-shrink: 0;
+    background: var(--cm-grid-header-bg);
+    border-top: var(--cm-grid-border-width) solid var(--cm-grid-border-color);
+}
+
+/* Таблица */
+.cm-grid-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+    table-layout: fixed;
+}
+
+/* Ячейки заголовка */
+.cm-grid-header-cell {
+    padding: var(--cm-grid-cell-padding);
+    height: var(--cm-grid-header-height);
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: var(--cm-grid-border-width) solid var(--cm-grid-border-color);
+    border-right: var(--cm-grid-border-width) solid var(--cm-grid-border-color);
+    background: var(--cm-grid-header-bg);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.cm-grid-header-cell:last-child {
+    border-right: none;
+}
+
+/* Сортируемые заголовки */
+.cm-grid-sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.cm-grid-sortable:hover {
+    background: #e9ecef;
+}
+
+.cm-grid-sortable .cm-grid-sort-icon {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+/* Состояния сортировки */
+.cm-grid-sort-asc .cm-grid-sort-icon::after {
+    content: '▲';
+    font-size: 10px;
+}
+
+.cm-grid-sort-desc .cm-grid-sort-icon::after {
+    content: '▼';
+    font-size: 10px;
+}
+
+/* Ячейки данных */
+.cm-grid-cell {
+    padding: var(--cm-grid-cell-padding);
+    height: var(--cm-grid-row-height);
+    border-bottom: var(--cm-grid-border-width) solid var(--cm-grid-border-color);
+    border-right: var(--cm-grid-border-width) solid var(--cm-grid-border-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cm-grid-cell:last-child {
+    border-right: none;
+}
+
+/* Строки */
+.cm-grid-row {
+    background: var(--cm-grid-bg);
+    transition: background-color 0.15s;
+}
+
+.cm-grid-row:hover {
+    background: var(--cm-grid-hover-bg);
+}
+
+.cm-grid-row:nth-child(even) {
+    background: var(--cm-grid-alt-bg);
+}
+
+.cm-grid-row:nth-child(even):hover {
+    background: var(--cm-grid-hover-bg);
+}
+
+/* Выбранная строка */
+.cm-grid-row-selected {
+    background: var(--cm-grid-selected-bg) !important;
+    color: var(--cm-grid-selected-color);
+}
+
+/* Пустое состояние */
+.cm-grid-empty {
+    padding: 40px;
+    text-align: center;
+    color: #6c757d;
+}
+
+/* Группировка */
+.cm-grid-group-header {
+    background: #e9ecef;
+    font-weight: 600;
+}
+
+.cm-grid-group-header td {
+    padding: 8px 12px;
+}
+
+/* Футер */
+.cm-grid-footer-cell {
+    padding: var(--cm-grid-cell-padding);
+    background: var(--cm-grid-header-bg);
+    font-weight: 600;
+    border-top: var(--cm-grid-border-width) solid var(--cm-grid-border-color);
+}
+
+/* Фильтры */
+.cm-grid-filterable .cm-grid-header-cell {
+    padding-bottom: 4px;
+}
+
+.cm-grid-filter-row td {
+    padding: 4px;
+    background: var(--cm-grid-header-bg);
+}
+
+.cm-grid-filter-input {
+    width: 100%;
+    padding: 4px 8px;
+    border: 1px solid var(--cm-grid-border-color);
+    border-radius: 2px;
+    font-size: 12px;
+}
+
+/* Пагинация */
+.cm-grid-pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--cm-grid-header-bg);
+    border-top: var(--cm-grid-border-width) solid var(--cm-grid-border-color);
+}
+
+.cm-grid-pager-info {
+    color: #6c757d;
+}
+
+.cm-grid-pager-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.cm-grid-pager-btn {
+    padding: 4px 12px;
+    border: 1px solid var(--cm-grid-border-color);
+    background: var(--cm-grid-bg);
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.cm-grid-pager-btn:hover:not(:disabled) {
+    background: #e9ecef;
+}
+
+.cm-grid-pager-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.cm-grid-pager-btn.active {
+    background: var(--cm-grid-selected-bg);
+    border-color: var(--cm-grid-selected-color);
+    color: var(--cm-grid-selected-color);
+}
+
+/* Редактирование */
+.cm-grid-editing .cm-grid-cell {
+    padding: 2px;
+}
+
+.cm-grid-editor {
+    width: 100%;
+    padding: 4px 8px;
+    border: 2px solid var(--cm-grid-selected-color);
+    font-size: inherit;
+}
+
+/* Ошибки валидации */
+.cm-grid-cell-invalid {
+    border-color: var(--cm-grid-error-color) !important;
+}
+
+.cm-grid-validation-error {
+    color: var(--cm-grid-error-color);
+    font-size: 12px;
+    margin-top: 2px;
+}
+
+/* Модальное окно редактирования */
+.cm-grid-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--cm-grid-bg);
+    border: var(--cm-grid-border-width) solid var(--cm-grid-border-color);
+    border-radius: var(--cm-grid-border-radius);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    min-width: 400px;
+    max-width: 90vw;
+}
+
+.cm-grid-popup-header {
+    padding: 16px;
+    border-bottom: var(--cm-grid-border-width) solid var(--cm-grid-border-color);
+    font-weight: 600;
+}
+
+.cm-grid-popup-body {
+    padding: 16px;
+}
+
+.cm-grid-popup-footer {
+    padding: 16px;
+    border-top: var(--cm-grid-border-width) solid var(--cm-grid-border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* Оверлей для попапа */
+.cm-grid-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+}
+
+/* Кнопки */
+.cm-grid-btn {
+    padding: 8px 16px;
+    border: 1px solid var(--cm-grid-border-color);
+    background: var(--cm-grid-bg);
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.cm-grid-btn-primary {
+    background: var(--cm-grid-selected-color);
+    color: white;
+    border-color: var(--cm-grid-selected-color);
+}
+
+.cm-grid-btn-primary:hover {
+    opacity: 0.9;
+}
+
+/* Группа колонок */
+.cm-grid-header-group {
+    text-align: center;
+    border-bottom: var(--cm-grid-border-width) solid var(--cm-grid-border-color);
+}
+
+/* Чекбоксы */
+.cm-grid-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}

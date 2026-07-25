@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CM Data Grid - Пример</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .example-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .example-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        #grid1, #grid2 {
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .controls button {
+            padding: 8px 16px;
+            margin-right: 10px;
+            cursor: pointer;
+            border: 1px solid #dee2e6;
+            background: white;
+            border-radius: 4px;
+        }
+
+        .controls button:hover {
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <h1>CM Data Grid - Примеры использования</h1>
+
+    <div class="example-container">
+        <div class="example-title">1. Базовая таблица с локальными данными</div>
+        <div id="grid1"></div>
+        <div class="controls">
+            <button onclick="addRow()">Добавить строку</button>
+            <button onclick="sortByName()">Сортировать по имени</button>
+            <button onclick="clearSort()">Сбросить сортировку</button>
+        </div>
+    </div>
+
+    <div class="example-container">
+        <div class="example-title">2. Таблица с пагинацией и выборкой</div>
+        <div id="grid2"></div>
+        <div class="controls">
+            <button onclick="getSelected()">Получить выбранные</button>
+            <button onclick="selectAll()">Выбрать все</button>
+            <button onclick="unselectAll()">Снять выделение</button>
+        </div>
+    </div>
+
+    <script>
+        // Тестовые данные
+        const sampleData = [
+            { id: 1, name: 'Иван Петров', age: 28, city: 'Москва', salary: 75000 },
+            { id: 2, name: 'Мария Сидорова', age: 34, city: 'Санкт-Петербург', salary: 92000 },
+            { id: 3, name: 'Алексей Козлов', age: 22, city: 'Новосибирск', salary: 58000 },
+            { id: 4, name: 'Елена Новикова', age: 45, city: 'Екатеринбург', salary: 120000 },
+            { id: 5, name: 'Дмитрий Морозов', age: 31, city: 'Казань', salary: 83000 },
+            { id: 6, name: 'Ольга Волкова', age: 27, city: 'Нижний Новгород', salary: 67000 },
+            { id: 7, name: 'Сергей Лебедев', age: 39, city: 'Самара', salary: 95000 },
+            { id: 8, name: 'Анна Кузнецова', age: 25, city: 'Ростов-на-Дону', salary: 62000 },
+            { id: 9, name: 'Павел Соколов', age: 42, city: 'Волгоград', salary: 88000 },
+            { id: 10, name: 'Наталья Попова', age: 33, city: 'Красноярск', salary: 71000 },
+            { id: 11, name: 'Михаил Федоров', age: 29, city: 'Воронеж', salary: 79000 },
+            { id: 12, name: 'Татьяна Зайцева', age: 36, city: 'Пермь', salary: 86000 }
+        ];
+
+        // Инициализация таблицы 1 (базовая)
+        $(document).ready(function() {
+            $('#grid1').cmDataGrid({
+                dataSource: sampleData,
+                columns: [
+                    { field: 'id', title: 'ID', width: 60 },
+                    { field: 'name', title: 'Имя', width: 200 },
+                    { field: 'age', title: 'Возраст', width: 100 },
+                    { field: 'city', title: 'Город', width: 180 },
+                    { field: 'salary', title: 'Зарплата', width: 120 }
+                ],
+                selectable: { mode: 'single' },
+                dataBound: function(e) {
+                    console.log('Данные загружены:', e.view.length, 'записей');
+                }
+            });
+
+            // Инициализация таблицы 2 (с пагинацией)
+            $('#grid2').cmDataGrid({
+                dataSource: {
+                    data: generateLargeDataset(),
+                    pageSize: 5
+                },
+                columns: [
+                    { field: 'id', title: 'ID', width: 60 },
+                    { field: 'name', title: 'Имя', width: 200 },
+                    { field: 'email', title: 'Email', width: 250 },
+                    { field: 'department', title: 'Отдел', width: 150 }
+                ],
+                selectable: { mode: 'multiple', checkbox: true },
+                pageable: {
+                    pageSize: 5,
+                    pageSizes: [5, 10, 20, 50]
+                }
+            });
+        });
+
+        // Генерация большого набора данных
+        function generateLargeDataset() {
+            const data = [];
+            const departments = ['IT', 'HR', 'Finance', 'Marketing', 'Sales'];
+            const names = ['Андрей', 'Борис', 'Виктор', 'Григорий', 'Денис',
+                          'Евгений', 'Жанна', 'Зинаида', 'Ирина', 'Кирилл'];
+
+            for (let i = 1; i <= 50; i++) {
+                data.push({
+                    id: i,
+                    name: names[i % names.length] + ' ' + (i + 100),
+                    email: 'user' + i + '@company.com',
+                    department: departments[i % departments.length]
+                });
+            }
+            return data;
+        }
+
+        // Функции для управления таблицей 1
+        function addRow() {
+            const grid = $('#grid1').data('cmDataGrid');
+            const ds = grid.getDataSource();
+            const newId = ds.all().length + 1;
+
+            ds.add({
+                id: newId,
+                name: 'Новый сотрудник ' + newId,
+                age: 25 + Math.floor(Math.random() * 20),
+                city: 'Город ' + newId,
+                salary: 50000 + Math.floor(Math.random() * 50000)
+            });
+
+            grid.refresh();
+        }
+
+        function sortByName() {
+            const grid = $('#grid1').data('cmDataGrid');
+            grid.sort('name', 'asc');
+        }
+
+        function clearSort() {
+            const grid = $('#grid1').data('cmDataGrid');
+            grid.clearSort();
+        }
+
+        // Функции для управления таблицей 2
+        function getSelected() {
+            const grid = $('#grid2').data('cmDataGrid');
+            const selected = grid.getSelected();
+            alert('Выбрано записей: ' + selected.length + '\n' +
+                  selected.map(s => s.name).join(', '));
+        }
+
+        function selectAll() {
+            const grid = $('#grid2').data('cmDataGrid');
+            grid.selectAll();
+        }
+
+        function unselectAll() {
+            const grid = $('#grid2').data('cmDataGrid');
+            grid.unselectAll();
+        }
+    </script>
+</body>
+</html>
